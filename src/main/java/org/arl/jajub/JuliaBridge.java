@@ -25,7 +25,10 @@ public class JuliaBridge {
     "-iq",
     "--startup-file=no",
     "-e",
-    "using InteractiveUtils; versioninfo(); println("+TERMINATOR+");"
+    "using InteractiveUtils; versioninfo();" +
+    "__type__(::AbstractArray{T,N}) where T where N = Array{T,N};" +
+    "__type__(a) = typeof(a);" +
+    "println("+TERMINATOR+");"
   };
 
   protected ProcessBuilder jbuilder;
@@ -122,7 +125,7 @@ public class JuliaBridge {
   }
 
   public Object get(String varname) {
-    List<String> rsp = exec("println(typeof("+varname+"))");
+    List<String> rsp = exec("println(__type__("+varname+"))");
     if (rsp.size() < 1) throw new RuntimeException("Invalid response from Julia REPL");
     String type = rsp.get(0);
     if (type.equals("Nothing")) return null;
@@ -137,13 +140,31 @@ public class JuliaBridge {
         read(buf, TIMEOUT);
         return new String(buf);
       }
+      int[] dims = null;
+      if (type.startsWith("Array{") && type.endsWith("}")) {
+        int p = type.indexOf(',');
+        if (p < 0) throw new RuntimeException("Invalid response from Julia REPL");
+        int d = Integer.parseInt(type.substring(p+1, type.length()-1));
+        dims = new int[d];
+        type = type.substring(6, p);
+        rsp = exec("println(size("+varname+"))");
+        if (rsp.size() < 1) throw new RuntimeException("Invalid response from Julia REPL");
+        String s = rsp.get(0);
+        int ofs = 1;
+        for (int i = 0; i < d; i++) {
+          p = s.indexOf(',', ofs);
+          if (p < 0) p = s.indexOf(')', ofs);
+          if (p < 0) throw new RuntimeException("Invalid response from Julia REPL");
+          dims[i] = Integer.parseInt(s.substring(ofs, p));
+        }
+      }
       write("write(stdout, "+varname+")");
-      if (type.equals("Int64")) return readNumber(8, false);
-      if (type.equals("Int32")) return readNumber(4, false);
-      if (type.equals("Int16")) return readNumber(2, false);
-      if (type.equals("Int8")) return readNumber(1, false);
-      if (type.equals("Float64")) return readNumber(8, true);
-      if (type.equals("Float32")) return readNumber(4, true);
+      if (type.equals("Int64")) return readNumeric(8, false, dims);
+      if (type.equals("Int32")) return readNumeric(4, false, dims);
+      if (type.equals("Int16")) return readNumeric(2, false, dims);
+      if (type.equals("Int8")) return readNumeric(1, false, dims);
+      if (type.equals("Float64")) return readNumeric(8, true, dims);
+      if (type.equals("Float32")) return readNumeric(4, true, dims);
       throw new RuntimeException("Unsupported type: "+type);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
@@ -174,7 +195,7 @@ public class JuliaBridge {
     }
   }
 
-  protected Object readNumber(int nbytes, boolean fp) throws IOException, InterruptedException {
+  protected Object readNumeric(int nbytes, boolean fp) throws IOException, InterruptedException {
     byte[] buf = new byte[nbytes];
     read(buf, TIMEOUT);
     if (nbytes == 1) return buf[0];
@@ -189,6 +210,70 @@ public class JuliaBridge {
         case 2: return bb.asShortBuffer().get();
         case 4: return bb.asIntBuffer().get();
         case 8: return bb.asLongBuffer().get();
+      }
+    }
+    return null;
+  }
+
+  protected Object readNumeric(int nbytes, boolean fp, int[] dims) throws IOException, InterruptedException {
+    if (dims == null) return readNumeric(nbytes, fp);
+    int nelem = 1;
+    for (int i = 0; i < dims.length; i++)
+      nelem *= dims[i];
+    byte[] buf = new byte[nbytes * nelem];
+    read(buf, TIMEOUT);
+    if (nbytes == 1) {
+      ByteArray a = new ByteArray();
+      a.data = buf;
+      a.dims = dims;
+      return a;
+    }
+    ByteBuffer bb = ByteBuffer.wrap(buf).order(ByteOrder.nativeOrder());
+    if (fp) {
+      switch (nbytes) {
+        case 4: {
+          float[] data = new float[nelem];
+          bb.asFloatBuffer().get(data);
+          FloatArray a = new FloatArray();
+          a.data = data;
+          a.dims = dims;
+          return a;
+        }
+        case 8: {
+          double[] data = new double[nelem];
+          bb.asDoubleBuffer().get(data);
+          DoubleArray a = new DoubleArray();
+          a.data = data;
+          a.dims = dims;
+          return a;
+        }
+      }
+    } else {
+      switch (nbytes) {
+        case 2: {
+          short[] data = new short[nelem];
+          bb.asShortBuffer().get(data);
+          ShortArray a = new ShortArray();
+          a.data = data;
+          a.dims = dims;
+          return a;
+        }
+        case 4: {
+          int[] data = new int[nelem];
+          bb.asIntBuffer().get(data);
+          IntegerArray a = new IntegerArray();
+          a.data = data;
+          a.dims = dims;
+          return a;
+        }
+        case 8: {
+          long[] data = new long[nelem];
+          bb.asLongBuffer().get(data);
+          LongArray a = new LongArray();
+          a.data = data;
+          a.dims = dims;
+          return a;
+        }
       }
     }
     return null;

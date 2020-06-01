@@ -79,4 +79,33 @@ class JuliaBridgeTest extends Specification {
       rsp2 == null
   }
 
+  def "get Julia variables"() {
+    setup:
+      def julia = new JuliaBridge()
+    when:
+      julia.open()
+      julia.exec(cmd)
+      def rsp = julia.get('x')
+      julia.close()
+    then:
+      rsp.class == t
+      rsp.data == v
+      rsp.dims == d
+    where:
+      cmd                          | t            | d       | v
+      'x = Int64[-2,3]'            | LongArray    | [2]     |[-2,3] as long[]
+      'x = Int32[-2,3]'            | IntegerArray | [2]     |[-2,3] as int[]
+      'x = Int16[-2,3]'            | ShortArray   | [2]     |[-2,3] as short[]
+      'x = Int8[-2,3]'             | ByteArray    | [2]     |[-2,3] as byte[]
+      'x = Float64[-2,3,NaN,Inf]'  | DoubleArray  | [4]     |[-2,3,Double.NaN,Double.POSITIVE_INFINITY] as double[]
+      'x = Float32[-2,3,NaN,-Inf]' | FloatArray   | [4]     |[-2,3,Float.NaN,Float.NEGATIVE_INFINITY] as float[]
+      'x = 1:10'                   | LongArray    | [10]    |[1,2,3,4,5,6,7,8,9,10] as long[]
+      'x = Int64[1 2; 3 4]'        | LongArray    | [2,2]   |[1,3,2,4] as long[]
+      'x = Int32[1 2; 3 4]'        | IntegerArray | [2,2]   |[1,3,2,4] as int[]
+      'x = Int16[1 2; 3 4]'        | ShortArray   | [2,2]   |[1,3,2,4] as short[]
+      'x = Int8[1 2; 3 4]'         | ByteArray    | [2,2]   |[1,3,2,4] as byte[]
+      'x = Float64[1 2; 3 4]'      | DoubleArray  | [2,2]   |[1,3,2,4] as double[]
+      'x = Float32[1 2; 3 4]'      | FloatArray   | [2,2]   |[1,3,2,4] as float[]
+  }
+
 }
