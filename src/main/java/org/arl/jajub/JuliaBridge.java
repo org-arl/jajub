@@ -28,6 +28,7 @@ public class JuliaBridge {
     "using InteractiveUtils; versioninfo();" +
     "__type__(::AbstractArray{T,N}) where T where N = Array{T,N};" +
     "__type__(a) = typeof(a);" +
+    "Infinity = Inf;" +
     "println("+TERMINATOR+");"
   };
 
@@ -113,7 +114,7 @@ public class JuliaBridge {
       write(cmd + "; " + TERMINATOR);
       while (true) {
         String s = readline(TIMEOUT);
-        if (s.equals(TERMINATOR) || s == null) return rsp;
+        if (s == null || s.equals(TERMINATOR)) return rsp;
         rsp.add(s);
       }
     } catch (InterruptedException ex) {
@@ -122,6 +123,17 @@ public class JuliaBridge {
       throw new RuntimeException("JuliaBridge connection broken", ex);
     }
     return rsp;
+  }
+
+  public void set(String varname, Object value) {
+    if (value == null) exec(varname+" = nothing");
+    else if (value instanceof String) exec(varname+" = raw\""+((String)value).replace("\"", "\\\"")+"\"");
+    else if (value instanceof Long) exec(varname+" = Int64("+value+")");
+    else if (value instanceof Integer) exec(varname+" = Int32("+value+")");
+    else if (value instanceof Short) exec(varname+" = Int16("+value+")");
+    else if (value instanceof Byte) exec(varname+" = Int8("+value+")");
+    else if (value instanceof Double) exec(varname+" = Float64("+value+")");
+    else if (value instanceof Float) exec(varname+" = Float32("+value+")");
   }
 
   public Object get(String varname) {

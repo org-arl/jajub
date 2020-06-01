@@ -15,14 +15,14 @@ class JuliaBridgeTest extends Specification {
     julia.close()
   }
 
-  def "get Julia version"() {
+  def "get version"() {
     when:
       def v = julia.juliaVersion
     then:
       v.startsWith('Julia Version ')
   }
 
-  def "exec Julia code"() {
+  def "exec code"() {
     setup:
       def julia = new JuliaBridge()
     when:
@@ -33,7 +33,7 @@ class JuliaBridgeTest extends Specification {
       rsp2 == []
   }
 
-  def "get Julia variables"() {
+  def "get variables"() {
     when:
       julia.exec(cmd)
       def rsp = julia.get('x')
@@ -51,11 +51,13 @@ class JuliaBridgeTest extends Specification {
       'x = Inf64'      | Double    | Double.POSITIVE_INFINITY
       'x = -Inf32'     | Float     | Float.NEGATIVE_INFINITY
       'x = NaN64'      | Double    | Double.NaN
-      'x = "7"'        | String    | "7"
-      'x = "αβγ"'      | String    | "αβγ"
+      'x = "7"'        | String    | '7'
+      'x = "αβγ"'      | String    | 'αβγ'
+      'x = "a\nb"'     | String    | 'a\nb'
+      'x = """a"b"""'  | String    | 'a"b'
   }
 
-  def "get Julia null variable"() {
+  def "get null variable"() {
     when:
       julia.exec('x = nothing')
       def rsp1 = julia.get('x')
@@ -66,7 +68,7 @@ class JuliaBridgeTest extends Specification {
       rsp2 == null
   }
 
-  def "get Julia variables"() {
+  def "get array variables"() {
     when:
       julia.exec(cmd)
       def rsp = julia.get('x')
@@ -89,6 +91,28 @@ class JuliaBridgeTest extends Specification {
       'x = Int8[1 2; 3 4]'         | ByteArray    | [2,2]   |[1,3,2,4] as byte[]
       'x = Float64[1 2; 3 4]'      | DoubleArray  | [2,2]   |[1,3,2,4] as double[]
       'x = Float32[1 2; 3 4]'      | FloatArray   | [2,2]   |[1,3,2,4] as float[]
+  }
+
+  def "put variables"() {
+    when:
+      julia.set('x', v)
+      def rsp = julia.get('x')
+    then:
+      rsp == v
+    where:
+      v                        | _
+      7 as long                | _
+      7 as int                 | _
+      7 as short               | _
+      7 as byte                | _
+      7 as double              | _
+      7 as float               | _
+      Double.POSITIVE_INFINITY | _
+      Float.NaN                | _
+      '77'                     | _
+      'αβγ'                    | _
+      '7\n7'                   | _
+      '7"7"'                   | _
   }
 
 }
