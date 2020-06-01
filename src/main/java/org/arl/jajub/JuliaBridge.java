@@ -3,6 +3,7 @@ package org.arl.jajub;
 import java.util.*;
 import java.io.*;
 import java.nio.*;
+import java.util.logging.*;
 
 /**
  * Java-Julia bridge.
@@ -31,6 +32,8 @@ public class JuliaBridge {
     "Infinity = Inf;" +
     "println("+TERMINATOR+");"
   };
+
+  protected Logger log = Logger.getLogger(getClass().getName());
 
   protected ProcessBuilder jbuilder;
   protected Process julia = null;
@@ -127,14 +130,8 @@ public class JuliaBridge {
 
   public void set(String varname, Object value) {
     try {
-      if (value == null) exec(varname+" = nothing");
-      else if (value instanceof String) exec(varname+" = raw\""+((String)value).replace("\"", "\\\"")+"\"");
-      else if (value instanceof Long) exec(varname+" = Int64("+value+")");
-      else if (value instanceof Integer) exec(varname+" = Int32("+value+")");
-      else if (value instanceof Short) exec(varname+" = Int16("+value+")");
-      else if (value instanceof Byte) exec(varname+" = Int8("+value+")");
-      else if (value instanceof Double) exec(varname+" = Float64("+value+")");
-      else if (value instanceof Float) exec(varname+" = Float32("+value+")");
+      String s = jexpr(value);
+      if (s != null) exec(varname+" = "+s);
       else if (value instanceof LongArray) writeNumeric(varname, ((LongArray)value).data, ((LongArray)value).dims);
       else if (value instanceof IntegerArray) writeNumeric(varname, ((IntegerArray)value).data, ((IntegerArray)value).dims);
       else if (value instanceof ShortArray) writeNumeric(varname, ((ShortArray)value).data, ((ShortArray)value).dims);
@@ -186,7 +183,8 @@ public class JuliaBridge {
           p = s.indexOf(',', ofs);
           if (p < 0) p = s.indexOf(')', ofs);
           if (p < 0) throw new RuntimeException("Invalid response from Julia REPL");
-          dims[i] = Integer.parseInt(s.substring(ofs, p));
+          dims[i] = Integer.parseInt(s.substring(ofs, p).trim());
+          ofs = p+1;
         }
       }
       write("write(stdout, "+varname+")");
@@ -206,13 +204,29 @@ public class JuliaBridge {
   }
 
   public Object call(String func, Object... args) {
+    List<String> tmp = new ArrayList<String>();
     StringBuilder sb = new StringBuilder();
-    sb.append("_ans_ = ");
+    sb.append("__ans__ = ");
     sb.append(func);
     sb.append('(');
+    for (int i = 0; i < args.length; i++) {
+      if (i > 0) sb.append(", ");
+      String s = jexpr(args[i]);
+      if (s != null) sb.append(s);
+      else {
+        String name = "__arg_"+i+"__";
+        tmp.add(name);
+        sb.append(name);
+        set(name, args[i]);
+      }
+    }
     sb.append(')');
     exec(sb.toString());
-    return get("_ans_");
+    for (String name: tmp)
+      set(name, null);
+    Object rv = get("__ans__");
+    set("__ans__", null);
+    return rv;
   }
 
   ////// private stuff
@@ -224,6 +238,19 @@ public class JuliaBridge {
     } catch(IOException ex) {
       throw new RuntimeException("Unable to open JuliaBridge", ex);
     }
+  }
+
+  protected String jexpr(Object value) {
+    if (value == null) return "nothing";
+    if (value instanceof JuliaExpr) return value.toString();
+    if (value instanceof String) return "raw\""+((String)value).replace("\"", "\\\"")+"\"";
+    if (value instanceof Long) return "Int64("+value+")";
+    if (value instanceof Integer) return "Int32("+value+")";
+    if (value instanceof Short) return "Int16("+value+")";
+    if (value instanceof Byte) return "Int8("+value+")";
+    if (value instanceof Double) return "Float64("+value+")";
+    if (value instanceof Float) return "Float32("+value+")";
+    return null;
   }
 
   protected Object readNumeric(int nbytes, boolean fp) throws IOException, InterruptedException {
@@ -419,12 +446,14 @@ public class JuliaBridge {
   }
 
   protected void write(String s) throws IOException {
+    log.info("> "+s);
     out.write(s.getBytes());
     out.write(CR);
     out.flush();
   }
 
   protected void write(byte[] b) throws IOException {
+    log.info("> ("+(b.length)+" bytes)");
     out.write(b);
     out.write(CR);
     out.flush();
@@ -443,11 +472,15 @@ public class JuliaBridge {
       while (n > 0 && !Thread.interrupted()) {
         int m = buf.length - ofs;
         ofs += inp.read(buf, ofs, n>m?m:n);
-        if (ofs == buf.length) return ofs;
+        if (ofs == buf.length) {
+          log.info("< ("+ofs+" bytes)");
+          return ofs;
+        }
         n = inp.available();
       }
       Thread.sleep(POLL_DELAY);
     } while (System.currentTimeMillis() < t);
+    log.info("< ("+ofs+" bytes)");
     return ofs;
   }
 
@@ -457,13 +490,19 @@ public class JuliaBridge {
     do {
       while (inp.available() > 0 && !Thread.interrupted()) {
         int b = inp.read();
-        if (b == CR) return sb.toString();
+        if (b == CR) {
+          String s = sb.toString();
+          log.info("< "+s);
+          return s;
+        }
         sb.append((char)b);
       }
       Thread.sleep(POLL_DELAY);
     } while (System.currentTimeMillis() < t);
     if (sb.length() == 0) return null;
-    return sb.toString();
+    String s = sb.toString();
+    log.info("< "+s);
+    return s;
   }
 
 }

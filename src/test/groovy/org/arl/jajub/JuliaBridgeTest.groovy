@@ -140,13 +140,61 @@ class JuliaBridgeTest extends Specification {
       rsp.data == v.data
       rsp.dims == v.dims
     where:
-      v                                              | _
-      new LongArray(data: [1,2,3,4], dims: [2,2])    | _
-      new IntegerArray(data: [1,2,3,4], dims: [2,2]) | _
-      new ShortArray(data: [1,2,3,4], dims: [2,2])   | _
-      new ByteArray(data: [1,2,3,4], dims: [2,2])    | _
-      new DoubleArray(data: [1,2,3,4], dims: [2,2])  | _
-      new FloatArray(data: [1,2,3,4], dims: [2,2])   | _
+      v                                                  | _
+      new LongArray(data: [1,2,3,4,5,6], dims: [2,3])    | _
+      new IntegerArray(data: [1,2,3,4,5,6], dims: [3,2]) | _
+      new ShortArray(data: [1,2,3,4,5,6], dims: [2,3])   | _
+      new ByteArray(data: [1,2,3,4,5,6], dims: [3,2])    | _
+      new DoubleArray(data: [1,2,3,4,5,6], dims: [2,3])  | _
+      new FloatArray(data: [1,2,3,4,5,6], dims: [3,2])   | _
+  }
+
+  def "call func without args"() {
+    when:
+      def v = julia.call('rand')
+    then:
+      v instanceof Double
+  }
+
+  def "call func with primitive args"() {
+    when:
+      def v1 = julia.call('round', 2.3f)
+      def v2 = julia.call('round', 2.3d)
+      def v3 = julia.call('min', 2.3d, 4.6d)
+      def v4 = julia.call('round', new JuliaExpr('Int32'), 2.3d)
+      def v5 = julia.call('(*)', 'abc', 'def')
+    then:
+      v1 instanceof Float
+      v1 == 2.0f
+      v2 instanceof Double
+      v2 == 2.0d
+      v3 instanceof Double
+      v3 == 2.3d
+      v4 instanceof Integer
+      v4 == 2
+      v5 instanceof String
+      v5 == 'abcdef'
+  }
+
+  def "call func with array args"() {
+    when:
+      def x = new IntegerArray(data: [1,2,3,4], dims: [4])
+      def y = new IntegerArray(data: [1,2,3,4], dims: [2,2])
+      def z = new IntegerArray(data: [1,2], dims: [2])
+      def v1 = julia.call('sum', x)
+      def v2 = julia.call('sum', y)
+      def v3 = julia.call('sum', y, new JuliaExpr('dims=1'))
+      def v4 = julia.call('sum', y, new JuliaExpr('dims=2'))
+      def v5 = julia.call('(+).', y, z)
+    then:
+      v1 == 10
+      v2 == 10
+      v3.data == [3,7]
+      v3.dims == [1,2]
+      v4.data == [4,6]
+      v4.dims == [2,1]
+      v5.data == [2,4,4,6]
+      v5.dims == [2,2]
   }
 
 }
