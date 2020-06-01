@@ -28,9 +28,11 @@ class JuliaBridgeTest extends Specification {
     when:
       def rsp1 = julia.exec('println(1+2)')
       def rsp2 = julia.exec('1+2')
+      def rsp3 = julia.exec(julia.expr('println(1+2)'))
     then:
       rsp1 == ['3']
       rsp2 == []
+      rsp3 == ['3']
   }
 
   def "get variables"() {
@@ -223,6 +225,14 @@ class JuliaBridgeTest extends Specification {
     then:
       v1 == 3.3
       v2 == 14.4
+  }
+
+  def "run from resources"() {
+    when:
+      julia.exec(getClass().getResourceAsStream('/test1.jl'))
+      def v = julia.eval('somefunc()')
+    then:
+      v == 42
   }
 
 }

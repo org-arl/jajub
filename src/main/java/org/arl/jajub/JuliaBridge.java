@@ -132,6 +132,18 @@ public class JuliaBridge {
     return exec(jcode.toString());
   }
 
+  public List<String> exec(InputStream istream) throws IOException {
+    StringBuilder sb = new StringBuilder();
+    BufferedReader reader = new BufferedReader(new InputStreamReader(istream));
+    while (true) {
+      String s = reader.readLine();
+      if (s == null) break;
+      sb.append(s);
+      sb.append('\n');
+    }
+    return exec(sb.toString());
+  }
+
   public void set(String varname, Object value) {
     try {
       String s = jexpr(value);
@@ -465,14 +477,14 @@ public class JuliaBridge {
   }
 
   protected void write(String s) throws IOException {
-    log.info("> "+s);
+    log.finest("> "+s);
     out.write(s.getBytes());
     out.write(CR);
     out.flush();
   }
 
   protected void write(byte[] b) throws IOException {
-    log.info("> ("+(b.length)+" bytes)");
+    log.finest("> ("+(b.length)+" bytes)");
     out.write(b);
     out.write(CR);
     out.flush();
@@ -492,14 +504,14 @@ public class JuliaBridge {
         int m = buf.length - ofs;
         ofs += inp.read(buf, ofs, n>m?m:n);
         if (ofs == buf.length) {
-          log.info("< ("+ofs+" bytes)");
+          log.finest("< ("+ofs+" bytes)");
           return ofs;
         }
         n = inp.available();
       }
       Thread.sleep(POLL_DELAY);
     } while (System.currentTimeMillis() < t);
-    log.info("< ("+ofs+" bytes)");
+    log.finest("< ("+ofs+" bytes)");
     return ofs;
   }
 
@@ -511,7 +523,7 @@ public class JuliaBridge {
         int b = inp.read();
         if (b == CR) {
           String s = sb.toString();
-          log.info("< "+s);
+          log.finest("< "+s);
           return s;
         }
         sb.append((char)b);
@@ -520,7 +532,7 @@ public class JuliaBridge {
     } while (System.currentTimeMillis() < t);
     if (sb.length() == 0) return null;
     String s = sb.toString();
-    log.info("< "+s);
+    log.finest("< "+s);
     return s;
   }
 
