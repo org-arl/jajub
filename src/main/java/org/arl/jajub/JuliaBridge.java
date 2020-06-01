@@ -109,12 +109,12 @@ public class JuliaBridge {
     return ver;
   }
 
-  public List<String> exec(String cmd) {
+  public List<String> exec(String jcode) {
     openIfNecessary();
     List<String> rsp = new ArrayList<String>();
     try {
       flush();
-      write(cmd + "; " + TERMINATOR);
+      write(jcode + "; " + TERMINATOR);
       while (true) {
         String s = readline(TIMEOUT);
         if (s == null || s.equals(TERMINATOR)) return rsp;
@@ -126,6 +126,10 @@ public class JuliaBridge {
       throw new RuntimeException("JuliaBridge connection broken", ex);
     }
     return rsp;
+  }
+
+  public List<String> exec(JuliaExpr jcode) {
+    return exec(jcode.toString());
   }
 
   public void set(String varname, Object value) {
@@ -203,6 +207,17 @@ public class JuliaBridge {
     return null;
   }
 
+  public Object eval(String jcode) {
+    exec("__ans__ = ( "+jcode+" )");
+    Object rv = get("__ans__");
+    set("__ans__", null);
+    return rv;
+  }
+
+  public Object eval(JuliaExpr jcode) {
+    return eval(jcode.toString());
+  }
+
   public Object call(String func, Object... args) {
     List<String> tmp = new ArrayList<String>();
     StringBuilder sb = new StringBuilder();
@@ -227,6 +242,10 @@ public class JuliaBridge {
     Object rv = get("__ans__");
     set("__ans__", null);
     return rv;
+  }
+
+  public static JuliaExpr expr(String jcode) {
+    return new JuliaExpr(jcode);
   }
 
   ////// private stuff

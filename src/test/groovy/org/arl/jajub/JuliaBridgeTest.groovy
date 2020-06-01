@@ -161,7 +161,7 @@ class JuliaBridgeTest extends Specification {
       def v1 = julia.call('round', 2.3f)
       def v2 = julia.call('round', 2.3d)
       def v3 = julia.call('min', 2.3d, 4.6d)
-      def v4 = julia.call('round', new JuliaExpr('Int32'), 2.3d)
+      def v4 = julia.call('round', julia.expr('Int32'), 2.3d)
       def v5 = julia.call('(*)', 'abc', 'def')
     then:
       v1 instanceof Float
@@ -183,8 +183,8 @@ class JuliaBridgeTest extends Specification {
       def z = new IntegerArray(data: [1,2], dims: [2])
       def v1 = julia.call('sum', x)
       def v2 = julia.call('sum', y)
-      def v3 = julia.call('sum', y, new JuliaExpr('dims=1'))
-      def v4 = julia.call('sum', y, new JuliaExpr('dims=2'))
+      def v3 = julia.call('sum', y, julia.expr('dims=1'))
+      def v4 = julia.call('sum', y, julia.expr('dims=2'))
       def v5 = julia.call('(+).', y, z)
     then:
       v1 == 10
@@ -195,6 +195,34 @@ class JuliaBridgeTest extends Specification {
       v4.dims == [2,1]
       v5.data == [2,4,4,6]
       v5.dims == [2,2]
+  }
+
+  def "eval"() {
+    when:
+      def v1 = julia.eval('1+2')
+      def v2 = julia.eval(julia.expr('1+2.2'))
+    then:
+      v1 == 3
+      v2 == 3.2
+  }
+
+  def "define and eval func"() {
+    when:
+      def code = '''
+        function myfunc(x)
+          if x < 5
+            x + 1.0
+          else
+            x * 2
+          end
+        end
+      '''
+      julia.exec(code)
+      def v1 = julia.eval('myfunc(2.3)')
+      def v2 = julia.eval('myfunc(7.2)')
+    then:
+      v1 == 3.3
+      v2 == 14.4
   }
 
 }
