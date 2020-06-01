@@ -148,18 +148,18 @@ public class JuliaBridge {
     try {
       String s = jexpr(value);
       if (s != null) exec(varname+" = "+s);
-      else if (value instanceof LongArray) writeNumeric(varname, ((LongArray)value).data, ((LongArray)value).dims);
-      else if (value instanceof IntegerArray) writeNumeric(varname, ((IntegerArray)value).data, ((IntegerArray)value).dims);
-      else if (value instanceof ShortArray) writeNumeric(varname, ((ShortArray)value).data, ((ShortArray)value).dims);
-      else if (value instanceof ByteArray) writeNumeric(varname, ((ByteArray)value).data, ((ByteArray)value).dims);
-      else if (value instanceof DoubleArray) writeNumeric(varname, ((DoubleArray)value).data, ((DoubleArray)value).dims);
-      else if (value instanceof FloatArray) writeNumeric(varname, ((FloatArray)value).data, ((FloatArray)value).dims);
-      else if (value instanceof long[]) writeNumeric(varname, (long[])value, new int[] { ((long[])value).length });
-      else if (value instanceof int[]) writeNumeric(varname, (int[])value, new int[] { ((int[])value).length });
-      else if (value instanceof short[]) writeNumeric(varname, (short[])value, new int[] { ((short[])value).length });
-      else if (value instanceof byte[]) writeNumeric(varname, (byte[])value, new int[] { ((byte[])value).length });
-      else if (value instanceof double[]) writeNumeric(varname, (double[])value, new int[] { ((double[])value).length });
-      else if (value instanceof float[]) writeNumeric(varname, (float[])value, new int[] { ((float[])value).length });
+      else if (value instanceof LongArray) writeNumeric(varname, ((LongArray)value).data, ((LongArray)value).dims, ((LongArray)value).isComplex);
+      else if (value instanceof IntegerArray) writeNumeric(varname, ((IntegerArray)value).data, ((IntegerArray)value).dims, ((IntegerArray)value).isComplex);
+      else if (value instanceof ShortArray) writeNumeric(varname, ((ShortArray)value).data, ((ShortArray)value).dims, ((ShortArray)value).isComplex);
+      else if (value instanceof ByteArray) writeNumeric(varname, ((ByteArray)value).data, ((ByteArray)value).dims, ((ByteArray)value).isComplex);
+      else if (value instanceof DoubleArray) writeNumeric(varname, ((DoubleArray)value).data, ((DoubleArray)value).dims, ((DoubleArray)value).isComplex);
+      else if (value instanceof FloatArray) writeNumeric(varname, ((FloatArray)value).data, ((FloatArray)value).dims, ((FloatArray)value).isComplex);
+      else if (value instanceof long[]) writeNumeric(varname, (long[])value, new int[] { ((long[])value).length }, false);
+      else if (value instanceof int[]) writeNumeric(varname, (int[])value, new int[] { ((int[])value).length }, false);
+      else if (value instanceof short[]) writeNumeric(varname, (short[])value, new int[] { ((short[])value).length }, false);
+      else if (value instanceof byte[]) writeNumeric(varname, (byte[])value, new int[] { ((byte[])value).length }, false);
+      else if (value instanceof double[]) writeNumeric(varname, (double[])value, new int[] { ((double[])value).length }, false);
+      else if (value instanceof float[]) writeNumeric(varname, (float[])value, new int[] { ((float[])value).length }, false);
       else throw new RuntimeException("Unsupported type: "+value.getClass().getName());
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
@@ -204,12 +204,18 @@ public class JuliaBridge {
         }
       }
       write("write(stdout, "+varname+")");
-      if (type.equals("Int64")) return readNumeric(8, false, dims);
-      if (type.equals("Int32")) return readNumeric(4, false, dims);
-      if (type.equals("Int16")) return readNumeric(2, false, dims);
-      if (type.equals("Int8")) return readNumeric(1, false, dims);
-      if (type.equals("Float64")) return readNumeric(8, true, dims);
-      if (type.equals("Float32")) return readNumeric(4, true, dims);
+      if (type.equals("Int64")) return readNumeric(8, false, dims, false);
+      if (type.equals("Int32")) return readNumeric(4, false, dims, false);
+      if (type.equals("Int16")) return readNumeric(2, false, dims, false);
+      if (type.equals("Int8")) return readNumeric(1, false, dims, false);
+      if (type.equals("Float64")) return readNumeric(8, true, dims, false);
+      if (type.equals("Float32")) return readNumeric(4, true, dims, false);
+      if (type.equals("Complex{Int64}")) return readNumeric(8, false, dims, true);
+      if (type.equals("Complex{Int32}")) return readNumeric(4, false, dims, true);
+      if (type.equals("Complex{Int16}")) return readNumeric(2, false, dims, true);
+      if (type.equals("Complex{Int8}")) return readNumeric(1, false, dims, true);
+      if (type.equals("Complex{Float64}")) return readNumeric(8, true, dims, true);
+      if (type.equals("Complex{Float32}")) return readNumeric(4, true, dims, true);
       throw new RuntimeException("Unsupported type: "+type);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
@@ -260,6 +266,22 @@ public class JuliaBridge {
     return new JuliaExpr(jcode);
   }
 
+  public static JuliaExpr complex(double x, double y) {
+    return new JuliaExpr("Complex{Float64}("+x+" + "+y+"im)");
+  }
+
+  public static JuliaExpr complex(float x, float y) {
+    return new JuliaExpr("Complex{Float32}("+x+" + "+y+"im)");
+  }
+
+  public static JuliaExpr complex(long x, long y) {
+    return new JuliaExpr("Complex{Int64}("+x+" + "+y+"im)");
+  }
+
+  public static JuliaExpr complex(int x, int y) {
+    return new JuliaExpr("Complex{Int32}("+x+" + "+y+"im)");
+  }
+
   ////// private stuff
 
   protected void openIfNecessary() {
@@ -304,17 +326,20 @@ public class JuliaBridge {
     return null;
   }
 
-  protected Object readNumeric(int nbytes, boolean fp, int[] dims) throws IOException, InterruptedException {
-    if (dims == null) return readNumeric(nbytes, fp);
+  protected Object readNumeric(int nbytes, boolean fp, int[] dims, boolean cplx) throws IOException, InterruptedException {
+    if (dims == null && !cplx) return readNumeric(nbytes, fp);
     int nelem = 1;
+    if (dims == null) dims = new int[0];
     for (int i = 0; i < dims.length; i++)
       nelem *= dims[i];
+    if (cplx) nelem *= 2;
     byte[] buf = new byte[nbytes * nelem];
     read(buf, TIMEOUT);
     if (nbytes == 1) {
       ByteArray a = new ByteArray();
       a.data = buf;
       a.dims = dims;
+      a.isComplex = cplx;
       return a;
     }
     ByteBuffer bb = ByteBuffer.wrap(buf).order(ByteOrder.nativeOrder());
@@ -326,6 +351,7 @@ public class JuliaBridge {
           FloatArray a = new FloatArray();
           a.data = data;
           a.dims = dims;
+          a.isComplex = cplx;
           return a;
         }
         case 8: {
@@ -334,6 +360,7 @@ public class JuliaBridge {
           DoubleArray a = new DoubleArray();
           a.data = data;
           a.dims = dims;
+          a.isComplex = cplx;
           return a;
         }
       }
@@ -345,6 +372,7 @@ public class JuliaBridge {
           ShortArray a = new ShortArray();
           a.data = data;
           a.dims = dims;
+          a.isComplex = cplx;
           return a;
         }
         case 4: {
@@ -353,6 +381,7 @@ public class JuliaBridge {
           IntegerArray a = new IntegerArray();
           a.data = data;
           a.dims = dims;
+          a.isComplex = cplx;
           return a;
         }
         case 8: {
@@ -361,6 +390,7 @@ public class JuliaBridge {
           LongArray a = new LongArray();
           a.data = data;
           a.dims = dims;
+          a.isComplex = cplx;
           return a;
         }
       }
@@ -368,10 +398,11 @@ public class JuliaBridge {
     return null;
   }
 
-  protected void checkArrayDims(int len, int[] dims) {
+  protected void checkArrayDims(int len, int[] dims, boolean cplx) {
     int nelem = 1;
     for (int i = 0; i < dims.length; i++)
       nelem *= dims[i];
+    if (cplx) nelem *= 2;
     if (nelem != len) throw new RuntimeException("Bad array dimensions");
   }
 
@@ -399,9 +430,9 @@ public class JuliaBridge {
     }
   }
 
-  protected void writeNumeric(String varname, long[] data, int[] dims) throws IOException, InterruptedException {
-    checkArrayDims(data.length, dims);
-    write(buildArrayWriter(varname, "Int64", dims));
+  protected void writeNumeric(String varname, long[] data, int[] dims, boolean cplx) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims, cplx);
+    write(buildArrayWriter(varname, cplx?"Complex{Int64}":"Int64", dims));
     ByteBuffer bb = ByteBuffer.allocate(data.length * 8);
     bb.order(ByteOrder.nativeOrder());
     for (int i = 0; i < data.length; i++)
@@ -410,9 +441,9 @@ public class JuliaBridge {
     waitUntilTerminator();
   }
 
-  protected void writeNumeric(String varname, int[] data, int[] dims) throws IOException, InterruptedException {
-    checkArrayDims(data.length, dims);
-    write(buildArrayWriter(varname, "Int32", dims));
+  protected void writeNumeric(String varname, int[] data, int[] dims, boolean cplx) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims, cplx);
+    write(buildArrayWriter(varname, cplx?"Complex{Int32}":"Int32", dims));
     ByteBuffer bb = ByteBuffer.allocate(data.length * 4);
     bb.order(ByteOrder.nativeOrder());
     for (int i = 0; i < data.length; i++)
@@ -421,9 +452,9 @@ public class JuliaBridge {
     waitUntilTerminator();
   }
 
-  protected void writeNumeric(String varname, short[] data, int[] dims) throws IOException, InterruptedException {
-    checkArrayDims(data.length, dims);
-    write(buildArrayWriter(varname, "Int16", dims));
+  protected void writeNumeric(String varname, short[] data, int[] dims, boolean cplx) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims, cplx);
+    write(buildArrayWriter(varname, cplx?"Complex{Int16}":"Int16", dims));
     ByteBuffer bb = ByteBuffer.allocate(data.length * 2);
     bb.order(ByteOrder.nativeOrder());
     for (int i = 0; i < data.length; i++)
@@ -432,16 +463,16 @@ public class JuliaBridge {
     waitUntilTerminator();
   }
 
-  protected void writeNumeric(String varname, byte[] data, int[] dims) throws IOException, InterruptedException {
-    checkArrayDims(data.length, dims);
-    write(buildArrayWriter(varname, "Int8", dims));
+  protected void writeNumeric(String varname, byte[] data, int[] dims, boolean cplx) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims, cplx);
+    write(buildArrayWriter(varname, cplx?"Complex{Int8}":"Int8", dims));
     write(data);
     waitUntilTerminator();
   }
 
-  protected void writeNumeric(String varname, double[] data, int[] dims) throws IOException, InterruptedException {
-    checkArrayDims(data.length, dims);
-    write(buildArrayWriter(varname, "Float64", dims));
+  protected void writeNumeric(String varname, double[] data, int[] dims, boolean cplx) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims, cplx);
+    write(buildArrayWriter(varname, cplx?"Complex{Float64}":"Float64", dims));
     ByteBuffer bb = ByteBuffer.allocate(data.length * 8);
     bb.order(ByteOrder.nativeOrder());
     for (int i = 0; i < data.length; i++)
@@ -450,9 +481,9 @@ public class JuliaBridge {
     waitUntilTerminator();
   }
 
-  protected void writeNumeric(String varname, float[] data, int[] dims) throws IOException, InterruptedException {
-    checkArrayDims(data.length, dims);
-    write(buildArrayWriter(varname, "Float32", dims));
+  protected void writeNumeric(String varname, float[] data, int[] dims, boolean cplx) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims, cplx);
+    write(buildArrayWriter(varname, cplx?"Complex{Float32}":"Float32", dims));
     ByteBuffer bb = ByteBuffer.allocate(data.length * 4);
     bb.order(ByteOrder.nativeOrder());
     for (int i = 0; i < data.length; i++)

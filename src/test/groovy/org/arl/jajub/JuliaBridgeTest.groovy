@@ -78,21 +78,30 @@ class JuliaBridgeTest extends Specification {
       rsp.class == t
       rsp.data == v
       rsp.dims == d
+      rsp.isComplex == c
     where:
-      cmd                          | t            | d       | v
-      'x = Int64[-2,3]'            | LongArray    | [2]     |[-2,3] as long[]
-      'x = Int32[-2,3]'            | IntegerArray | [2]     |[-2,3] as int[]
-      'x = Int16[-2,3]'            | ShortArray   | [2]     |[-2,3] as short[]
-      'x = Int8[-2,3]'             | ByteArray    | [2]     |[-2,3] as byte[]
-      'x = Float64[-2,3,NaN,Inf]'  | DoubleArray  | [4]     |[-2,3,Double.NaN,Double.POSITIVE_INFINITY] as double[]
-      'x = Float32[-2,3,NaN,-Inf]' | FloatArray   | [4]     |[-2,3,Float.NaN,Float.NEGATIVE_INFINITY] as float[]
-      'x = 1:10'                   | LongArray    | [10]    |[1,2,3,4,5,6,7,8,9,10] as long[]
-      'x = Int64[1 2; 3 4]'        | LongArray    | [2,2]   |[1,3,2,4] as long[]
-      'x = Int32[1 2; 3 4]'        | IntegerArray | [2,2]   |[1,3,2,4] as int[]
-      'x = Int16[1 2; 3 4]'        | ShortArray   | [2,2]   |[1,3,2,4] as short[]
-      'x = Int8[1 2; 3 4]'         | ByteArray    | [2,2]   |[1,3,2,4] as byte[]
-      'x = Float64[1 2; 3 4]'      | DoubleArray  | [2,2]   |[1,3,2,4] as double[]
-      'x = Float32[1 2; 3 4]'      | FloatArray   | [2,2]   |[1,3,2,4] as float[]
+      cmd                          | t            | d     | c     | v
+      'x = Int64[-2,3]'            | LongArray    | [2]   | false |[-2,3] as long[]
+      'x = Int32[-2,3]'            | IntegerArray | [2]   | false |[-2,3] as int[]
+      'x = Int16[-2,3]'            | ShortArray   | [2]   | false |[-2,3] as short[]
+      'x = Int8[-2,3]'             | ByteArray    | [2]   | false |[-2,3] as byte[]
+      'x = Float64[-2,3,NaN,Inf]'  | DoubleArray  | [4]   | false |[-2,3,Double.NaN,Double.POSITIVE_INFINITY] as double[]
+      'x = Float32[-2,3,NaN,-Inf]' | FloatArray   | [4]   | false |[-2,3,Float.NaN,Float.NEGATIVE_INFINITY] as float[]
+      'x = 1:10'                   | LongArray    | [10]  | false |[1,2,3,4,5,6,7,8,9,10] as long[]
+      'x = Int64[1 2; 3 4]'        | LongArray    | [2,2] | false |[1,3,2,4] as long[]
+      'x = Int32[1 2; 3 4]'        | IntegerArray | [2,2] | false |[1,3,2,4] as int[]
+      'x = Int16[1 2; 3 4]'        | ShortArray   | [2,2] | false |[1,3,2,4] as short[]
+      'x = Int8[1 2; 3 4]'         | ByteArray    | [2,2] | false |[1,3,2,4] as byte[]
+      'x = Float64[1 2; 3 4]'      | DoubleArray  | [2,2] | false |[1,3,2,4] as double[]
+      'x = Float32[1 2; 3 4]'      | FloatArray   | [2,2] | false |[1,3,2,4] as float[]
+      'x = 2 + 3im'                | LongArray    | []    | true  |[2,3] as long[]
+      'x = 2.0 + 3.0im'            | DoubleArray  | []    | true  |[2,3] as double[]
+      'x = Complex{Int64}[-2,3]'   | LongArray    | [2]   | true  |[-2,0,3,0] as long[]
+      'x = Complex{Int32}[-2,3]'   | IntegerArray | [2]   | true  |[-2,0,3,0] as int[]
+      'x = Complex{Int16}[-2,3]'   | ShortArray   | [2]   | true  |[-2,0,3,0] as short[]
+      'x = Complex{Int8}[-2,3]'    | ByteArray    | [2]   | true  |[-2,0,3,0] as byte[]
+      'x = Complex{Float64}[-2,3]' | DoubleArray  | [2]   | true  |[-2,0,3,0] as double[]
+      'x = Complex{Float32}[-2,3]' | FloatArray   | [2]   | true  |[-2,0,3,0] as float[]
   }
 
   def "put variables"() {
@@ -124,6 +133,7 @@ class JuliaBridgeTest extends Specification {
     then:
       rsp.data == v
       rsp.dims == [v.length]
+      rsp.isComplex == false
     where:
       v                        | _
       [1,2,3]  as long[]       | _
@@ -141,14 +151,21 @@ class JuliaBridgeTest extends Specification {
     then:
       rsp.data == v.data
       rsp.dims == v.dims
+      rsp.isComplex == v.isComplex
     where:
-      v                                                  | _
-      new LongArray(data: [1,2,3,4,5,6], dims: [2,3])    | _
-      new IntegerArray(data: [1,2,3,4,5,6], dims: [3,2]) | _
-      new ShortArray(data: [1,2,3,4,5,6], dims: [2,3])   | _
-      new ByteArray(data: [1,2,3,4,5,6], dims: [3,2])    | _
-      new DoubleArray(data: [1,2,3,4,5,6], dims: [2,3])  | _
-      new FloatArray(data: [1,2,3,4,5,6], dims: [3,2])   | _
+      v                                                                   | _
+      new LongArray(data: [1,2,3,4,5,6], dims: [2,3])                     | _
+      new IntegerArray(data: [1,2,3,4,5,6], dims: [3,2])                  | _
+      new ShortArray(data: [1,2,3,4,5,6], dims: [2,3])                    | _
+      new ByteArray(data: [1,2,3,4,5,6], dims: [3,2])                     | _
+      new DoubleArray(data: [1,2,3,4,5,6], dims: [2,3])                   | _
+      new FloatArray(data: [1,2,3,4,5,6], dims: [3,2])                    | _
+      new LongArray(data: [1,2,3,4,5,6], dims: [1,3], isComplex: true)    | _
+      new IntegerArray(data: [1,2,3,4,5,6], dims: [3,1], isComplex: true) | _
+      new ShortArray(data: [1,2,3,4,5,6], dims: [1,3], isComplex: true)   | _
+      new ByteArray(data: [1,2,3,4,5,6], dims: [3,1], isComplex: true)    | _
+      new DoubleArray(data: [1,2,3,4,5,6], dims: [1,3], isComplex: true)  | _
+      new FloatArray(data: [1,2,3,4,5,6], dims: [3,1], isComplex: true)   | _
   }
 
   def "call func without args"() {
@@ -176,6 +193,15 @@ class JuliaBridgeTest extends Specification {
       v4 == 2
       v5 instanceof String
       v5 == 'abcdef'
+  }
+
+  def "complex computations"() {
+    when:
+      def v1 = julia.call('abs', julia.complex(3, 4))
+      def v2 = julia.call('abs', julia.complex(3.0, 4.0))
+    then:
+      v1 == 5
+      v2 == 5.0
   }
 
   def "call func with array args"() {
