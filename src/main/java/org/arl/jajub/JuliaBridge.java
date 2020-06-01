@@ -126,14 +126,33 @@ public class JuliaBridge {
   }
 
   public void set(String varname, Object value) {
-    if (value == null) exec(varname+" = nothing");
-    else if (value instanceof String) exec(varname+" = raw\""+((String)value).replace("\"", "\\\"")+"\"");
-    else if (value instanceof Long) exec(varname+" = Int64("+value+")");
-    else if (value instanceof Integer) exec(varname+" = Int32("+value+")");
-    else if (value instanceof Short) exec(varname+" = Int16("+value+")");
-    else if (value instanceof Byte) exec(varname+" = Int8("+value+")");
-    else if (value instanceof Double) exec(varname+" = Float64("+value+")");
-    else if (value instanceof Float) exec(varname+" = Float32("+value+")");
+    try {
+      if (value == null) exec(varname+" = nothing");
+      else if (value instanceof String) exec(varname+" = raw\""+((String)value).replace("\"", "\\\"")+"\"");
+      else if (value instanceof Long) exec(varname+" = Int64("+value+")");
+      else if (value instanceof Integer) exec(varname+" = Int32("+value+")");
+      else if (value instanceof Short) exec(varname+" = Int16("+value+")");
+      else if (value instanceof Byte) exec(varname+" = Int8("+value+")");
+      else if (value instanceof Double) exec(varname+" = Float64("+value+")");
+      else if (value instanceof Float) exec(varname+" = Float32("+value+")");
+      else if (value instanceof LongArray) writeNumeric(varname, ((LongArray)value).data, ((LongArray)value).dims);
+      else if (value instanceof IntegerArray) writeNumeric(varname, ((IntegerArray)value).data, ((IntegerArray)value).dims);
+      else if (value instanceof ShortArray) writeNumeric(varname, ((ShortArray)value).data, ((ShortArray)value).dims);
+      else if (value instanceof ByteArray) writeNumeric(varname, ((ByteArray)value).data, ((ByteArray)value).dims);
+      else if (value instanceof DoubleArray) writeNumeric(varname, ((DoubleArray)value).data, ((DoubleArray)value).dims);
+      else if (value instanceof FloatArray) writeNumeric(varname, ((FloatArray)value).data, ((FloatArray)value).dims);
+      else if (value instanceof long[]) writeNumeric(varname, (long[])value, new int[] { ((long[])value).length });
+      else if (value instanceof int[]) writeNumeric(varname, (int[])value, new int[] { ((int[])value).length });
+      else if (value instanceof short[]) writeNumeric(varname, (short[])value, new int[] { ((short[])value).length });
+      else if (value instanceof byte[]) writeNumeric(varname, (byte[])value, new int[] { ((byte[])value).length });
+      else if (value instanceof double[]) writeNumeric(varname, (double[])value, new int[] { ((double[])value).length });
+      else if (value instanceof float[]) writeNumeric(varname, (float[])value, new int[] { ((float[])value).length });
+      else throw new RuntimeException("Unsupported type: "+value.getClass().getName());
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+    } catch (IOException ex) {
+      throw new RuntimeException("JuliaBridge connection broken", ex);
+    }
   }
 
   public Object get(String varname) {
@@ -289,6 +308,99 @@ public class JuliaBridge {
       }
     }
     return null;
+  }
+
+  protected void checkArrayDims(int len, int[] dims) {
+    int nelem = 1;
+    for (int i = 0; i < dims.length; i++)
+      nelem *= dims[i];
+    if (nelem != len) throw new RuntimeException("Bad array dimensions");
+  }
+
+  protected String buildArrayWriter(String varname, String type, int[] dims) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(varname);
+    sb.append(" = Array{");
+    sb.append(type);
+    sb.append("}(undef");
+    for (int i = 0; i < dims.length; i++) {
+      sb.append(", ");
+      sb.append(dims[i]);
+    }
+    sb.append("); read!(stdin, ");
+    sb.append(varname);
+    sb.append("); ");
+    sb.append(TERMINATOR);
+    return sb.toString();
+  }
+
+  protected void waitUntilTerminator() throws IOException, InterruptedException {
+    while (true) {
+      String s = readline(TIMEOUT);
+      if (s == null || s.equals(TERMINATOR)) return;
+    }
+  }
+
+  protected void writeNumeric(String varname, long[] data, int[] dims) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims);
+    write(buildArrayWriter(varname, "Int64", dims));
+    ByteBuffer bb = ByteBuffer.allocate(data.length * 8);
+    bb.order(ByteOrder.nativeOrder());
+    for (int i = 0; i < data.length; i++)
+      bb.putLong(data[i]);
+    write(bb.array());
+    waitUntilTerminator();
+  }
+
+  protected void writeNumeric(String varname, int[] data, int[] dims) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims);
+    write(buildArrayWriter(varname, "Int32", dims));
+    ByteBuffer bb = ByteBuffer.allocate(data.length * 4);
+    bb.order(ByteOrder.nativeOrder());
+    for (int i = 0; i < data.length; i++)
+      bb.putInt(data[i]);
+    write(bb.array());
+    waitUntilTerminator();
+  }
+
+  protected void writeNumeric(String varname, short[] data, int[] dims) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims);
+    write(buildArrayWriter(varname, "Int16", dims));
+    ByteBuffer bb = ByteBuffer.allocate(data.length * 2);
+    bb.order(ByteOrder.nativeOrder());
+    for (int i = 0; i < data.length; i++)
+      bb.putShort(data[i]);
+    write(bb.array());
+    waitUntilTerminator();
+  }
+
+  protected void writeNumeric(String varname, byte[] data, int[] dims) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims);
+    write(buildArrayWriter(varname, "Int8", dims));
+    write(data);
+    waitUntilTerminator();
+  }
+
+  protected void writeNumeric(String varname, double[] data, int[] dims) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims);
+    write(buildArrayWriter(varname, "Float64", dims));
+    ByteBuffer bb = ByteBuffer.allocate(data.length * 8);
+    bb.order(ByteOrder.nativeOrder());
+    for (int i = 0; i < data.length; i++)
+      bb.putDouble(data[i]);
+    write(bb.array());
+    waitUntilTerminator();
+  }
+
+  protected void writeNumeric(String varname, float[] data, int[] dims) throws IOException, InterruptedException {
+    checkArrayDims(data.length, dims);
+    write(buildArrayWriter(varname, "Float32", dims));
+    ByteBuffer bb = ByteBuffer.allocate(data.length * 4);
+    bb.order(ByteOrder.nativeOrder());
+    for (int i = 0; i < data.length; i++)
+      bb.putFloat(data[i]);
+    write(bb.array());
+    waitUntilTerminator();
   }
 
   protected String getJuliaExec() {

@@ -115,4 +115,38 @@ class JuliaBridgeTest extends Specification {
       '7"7"'                   | _
   }
 
+  def "put array variables"() {
+    when:
+      julia.set('x', v)
+      def rsp = julia.get('x')
+    then:
+      rsp.data == v
+      rsp.dims == [v.length]
+    where:
+      v                        | _
+      [1,2,3]  as long[]       | _
+      [1,2,3]  as int[]        | _
+      [1,2,3]  as short[]      | _
+      [1,2,3]  as byte[]       | _
+      [1,2,3]  as double[]     | _
+      [1,2,3]  as float[]      | _
+  }
+
+  def "put 2D array variables"() {
+    when:
+      julia.set('x', v)
+      def rsp = julia.get('x')
+    then:
+      rsp.data == v.data
+      rsp.dims == v.dims
+    where:
+      v                                              | _
+      new LongArray(data: [1,2,3,4], dims: [2,2])    | _
+      new IntegerArray(data: [1,2,3,4], dims: [2,2]) | _
+      new ShortArray(data: [1,2,3,4], dims: [2,2])   | _
+      new ByteArray(data: [1,2,3,4], dims: [2,2])    | _
+      new DoubleArray(data: [1,2,3,4], dims: [2,2])  | _
+      new FloatArray(data: [1,2,3,4], dims: [2,2])   | _
+  }
+
 }
