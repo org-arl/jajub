@@ -70,6 +70,13 @@ class JuliaBridgeTest extends Specification {
       rsp2 == null
   }
 
+  def "get non-existent variable"() {
+    when:
+      def v = julia.get('m')
+    then:
+      v == null
+  }
+
   def "get array variables"() {
     when:
       julia.exec(cmd)

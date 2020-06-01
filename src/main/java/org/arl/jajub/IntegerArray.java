@@ -1,7 +1,8 @@
 package org.arl.jajub;
 
-public class IntegerArray implements NumericArray {
+/**
+ * Multi-dimensional Julia arrays containing Int32 values.
+ */
+public class IntegerArray extends NumericArray {
   public int[] data;
-  public int[] dims;
-  public boolean isComplex;
 }

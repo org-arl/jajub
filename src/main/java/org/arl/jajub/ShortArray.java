@@ -1,7 +1,8 @@
 package org.arl.jajub;
 
-public class ShortArray implements NumericArray {
+/**
+ * Multi-dimensional Julia arrays containing Int16 values.
+ */
+public class ShortArray extends NumericArray {
   public short[] data;
-  public int[] dims;
-  public boolean isComplex;
 }

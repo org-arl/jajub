@@ -1,7 +1,8 @@
 package org.arl.jajub;
 
-public class LongArray implements NumericArray {
+/**
+ * Multi-dimensional Julia arrays containing Int64 values.
+ */
+public class LongArray extends NumericArray {
   public long[] data;
-  public int[] dims;
-  public boolean isComplex;
 }

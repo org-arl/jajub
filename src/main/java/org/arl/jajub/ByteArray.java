@@ -1,7 +1,8 @@
 package org.arl.jajub;
 
-public class ByteArray implements NumericArray {
+/**
+ * Multi-dimensional Julia arrays containing Int8 values.
+ */
+public class ByteArray extends NumericArray {
   public byte[] data;
-  public int[] dims;
-  public boolean isComplex;
 }

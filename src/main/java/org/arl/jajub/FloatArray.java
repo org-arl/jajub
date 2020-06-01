@@ -1,7 +1,8 @@
 package org.arl.jajub;
 
-public class FloatArray implements NumericArray {
+/**
+ * Multi-dimensional Julia arrays containing Float32 values.
+ */
+public class FloatArray extends NumericArray {
   public float[] data;
-  public int[] dims;
-  public boolean isComplex;
 }
