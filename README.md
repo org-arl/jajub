@@ -88,6 +88,12 @@ zzz = julia.call("sum", xxx, julia.expr("dims=2"))
 println( zzz.dims )
 println( zzz.data )
 
+// transfer variables, execute commands, and get back results
+julia.set("xxx", xxx)
+julia.exec("using LinearAlgebra; u, s, v = svd(xxx)")
+def s = julia.get("s")
+println( s.data )
+
 // shutdown Julia
 julia.close()
 ```
