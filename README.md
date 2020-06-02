@@ -95,10 +95,11 @@ zzz = julia.call("sum", xxx, julia.expr("dims=2"))
 println( zzz.dims )
 println( zzz.data )
 
-// transfer variables, execute commands, and get back results
+// you could also transfer variables, execute commands, and get back results
+julia.exec("using LinearAlgebra")
 svd = { A ->
   julia.set("A", A)
-  julia.exec("using LinearAlgebra; u, s, v = svd(A)")
+  julia.exec("u, s, v = svd(A)")
   julia.get("s")
 }
 println( svd(xxx).data )
