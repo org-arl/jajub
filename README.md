@@ -59,29 +59,36 @@ julia.exec("""
 // and loaded as a resource:
 //   julia.exec(getClass().getResourceAsStream('/test.jl'))
 
+// now you can call the function
 println( julia.eval("myfunc(2.7, 4.2)") )
 
-// call function with Java variables
-double x = 2.7
-double y = 4.2
-println( julia.call("myfunc", x, y) )
+// use closures for a nicer syntax:
+myfunc  = { a, b -> julia.call("myfunc", a, b) }
+myfunc_ = { a, b -> julia.call("myfunc.", a, b) }   // with broadcast
+
+// you could do the same with plain old methods or Java lambdas,
+// or just directly use julia.call() everywhere
+
+// call Julia function
+println( myfunc(2, 4) )
+println( myfunc(2.7f, 4.2f) )
 
 // call function with Java arrays
 double[] xx = [1.2, 2.3]
 double[] yy = [3.4, 4.5]
-def zz = julia.call("myfunc.", xx, yy)
+def zz = myfunc_(xx, yy)
 println( zz.dims )
 println( zz.data )
 
 // call function with Java matrices or tensors
 def xxx = new DoubleArray(data: [1.2, 2.3, 3.4, 4.5], dims: [2, 2])
 def yyy = new DoubleArray(data: [3.4, 4.5, 5.6, 6.7], dims: [2, 2])
-def zzz = julia.call("myfunc.", xxx, yyy)
+def zzz = myfunc_(xxx, yyy)
 println( zzz.dims )
 println( zzz.data )
 
 // call function with complex numbers
-println( julia.call("abs", julia.complex(x, y)) )
+println( julia.call("abs", julia.complex(2.7, 4.2)) )
 
 // pass in additional Julia expressions
 zzz = julia.call("sum", xxx, julia.expr("dims=2"))
@@ -89,10 +96,12 @@ println( zzz.dims )
 println( zzz.data )
 
 // transfer variables, execute commands, and get back results
-julia.set("xxx", xxx)
-julia.exec("using LinearAlgebra; u, s, v = svd(xxx)")
-def s = julia.get("s")
-println( s.data )
+svd = { A ->
+  julia.set("A", A)
+  julia.exec("using LinearAlgebra; u, s, v = svd(A)")
+  julia.get("s")
+}
+println( svd(xxx).data )
 
 // shutdown Julia
 julia.close()
