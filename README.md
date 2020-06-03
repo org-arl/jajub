@@ -25,7 +25,7 @@ Support & API Documentation
 ---------------------------
 
 * [Project Home](http://github.com/org-arl/jajub)
-* [API documentation](http://org-arl.github.io/jajub/javadoc/)
+* [API documentation](http://org-arl.github.io/jajub/)
 * [Issue Tracking](http://github.com/org-arl/jajub/issues)
 
 Example code
