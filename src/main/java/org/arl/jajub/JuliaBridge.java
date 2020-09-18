@@ -62,28 +62,15 @@ public class JuliaBridge {
   }
 
   /**
-   * Creates a Java-Julia bridge with custom Julia arguments.
-   *
-   * @param jargs custom Julia command-line arguments.
-   */
-  public JuliaBridge(String... jargs) {
-    List<String> j = new ArrayList<String>();
-    j.add(getJuliaExec());
-    j.addAll(Arrays.asList(jargs));
-    j.addAll(Arrays.asList(JULIA_ARGS));
-    jbuilder = new ProcessBuilder(j);
-  }
-
-  /**
    * Creates a Java-Julia bridge with custom Julia command
    * and arguments.
    *
-   * @param jcmd custom Julia executable/command.
+   * @param jcmd custom Julia executable/command (null to use default).
    * @param jargs custom Julia command-line arguments.
    */
   public JuliaBridge(String jcmd, String... jargs) {
     List<String> j = new ArrayList<String>();
-    j.add(jcmd);
+    j.add(jcmd == null ? getJuliaExec() : jcmd);
     j.addAll(Arrays.asList(jargs));
     j.addAll(Arrays.asList(JULIA_ARGS));
     jbuilder = new ProcessBuilder(j);
