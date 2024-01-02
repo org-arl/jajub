@@ -3,6 +3,8 @@
 Java-Julia bridge
 =================
 
+### This repository was experimental and is no longer being maintained!!!
+
 Introduction
 ------------
 
